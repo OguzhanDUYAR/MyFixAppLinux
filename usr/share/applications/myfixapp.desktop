@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=0.1
+Name=MyFixApp
+Type=Application
+Comment=This script is an automation tool that performs automatic updates, upgrades, deletion of unnecessary files and maintenance on a Linux system.
+Comment[tr_TR]=Bu script, Linux sisteminde otomatik güncelleme, yükseltme, gereksiz dosyaların silinmesi ve bakım işlemlerini gerçekleştiren bir otomasyon aracıdır.
+Terminal=true
+Exec=myfixapp
+Icon=htop
+Categories=ConsoleOnly;Utility;
+Keywords=myfixapp,update,upgrade,system;

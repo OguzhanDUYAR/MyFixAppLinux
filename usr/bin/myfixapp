@@ -1,0 +1,52 @@
+#!/bin/bash
+
+echo “**********************************************”
+echo “* * *”
+echo “* Welcome to MyFixApp v0.1!       *”
+echo “* * *”
+echo “* Have a nice day, $USER!”
+echo “* * *”
+echo “* Current Date and Time: $(date) “
+echo “* System Time: $(uptime -p) ”
+echo “* * *”
+echo “* By Oguzhan DUYAR *”
+echo “* * *”
+echo “**********************************************”
+
+
+# Auto update and upgrade
+echo “Updating and upgrading the system...”
+sudo apt-get update -y && sudo apt-get upgrade -y
+
+# Auto remove unnecessary packages
+echo “Removing unnecessary packages...”
+sudo apt-get autoremove -y
+
+# Auto clean up the package cache
+echo “Clearing the package cache...”
+sudo apt-get clean
+
+# Clean up orphaned packages
+echo “Cleaning orphan packages...”
+sudo apt-get autoclean -y
+
+# Remove old kernels (keeping the current and the previous one)
+echo “Removing old kernels...”
+sudo apt-get purge $(dpkg -l 'linux-image-[0-9]*' | awk '/^ii/{ print $2}' | grep -v `uname -r | cut -d“-” -f1,2`)
+
+# Delete unnecessary files in /var/log
+echo “Purging temporary log files...”
+sudo find /var/log -type f -name “*.log” -delete
+
+# Delete files from the trash
+echo “Emptying the trash...”
+rm -rf ~/.local/share/Trash/*
+
+
+# Display disk usage
+echo “Displaying disk usage...”
+df -h
+
+echo “Maintenance complete.”
+# Wait for user to press a key before closing
+read -n 1 -s -r -p “...”
