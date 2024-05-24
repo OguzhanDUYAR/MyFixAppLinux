@@ -2,6 +2,8 @@
 
 This script automates the process of updating, upgrading, and maintaining an Ubuntu system by performing tasks such as removing unnecessary packages and cleaning up the system.
 
+!!!Not: Works only on Debian, Ubuntu based systems.
+
 ## Features
 
 - Automatically updates and upgrades the system
