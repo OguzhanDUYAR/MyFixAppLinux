@@ -36,3 +36,44 @@ Bu betik, gereksiz paketleri kaldırma ve sistemi temizleme gibi görevleri yeri
 - Snap paketlerini günceller
 - Geçerli disk kullanımını görüntüler
 - Kapatmadan önce kullanıcı girdisini bekler
+
+
+# MyFixApp
+
+![MyFixApp Logo](https://your-logo-url-here.com/logo.png)
+
+MyFixApp, Fedora Linux sisteminizde otomatik bakım ve temizlik yapmanıza yardımcı olan basit bir bash scriptidir.
+
+## Özellikler
+
+- Sistem güncellemeleri ve yükseltmeleri
+- Gereksiz paketlerin otomatik olarak kaldırılması
+- Paket önbelleğinin temizlenmesi
+- Yetim paketlerin temizlenmesi
+- Eski çekirdeklerin kaldırılması
+- Geçici günlük dosyalarının temizlenmesi
+- Çöp kutusunun boşaltılması
+- Flatpak uygulamalarının güncellenmesi
+- Disk kullanımının gösterilmesi
+
+## Kurulum
+
+Aşağıdaki komutları terminalde çalıştırarak MyFixApp uygulamasını kurabilirsiniz:
+
+```bash
+sudo wget https://raw.githubusercontent.com/OguzhanDUYAR/MyFixAppLinux/main/myfixfedora -O /usr/bin/myfixfedora && sudo chmod +x /usr/bin/myfixfedora && sudo wget https://raw.githubusercontent.com/OguzhanDUYAR/MyFixAppLinux/main/myfixfedora.desktop -O /usr/share/applications/myfixfedora.desktop
+```
+
+Katkıda Bulunma
+Bu projeyi fork edin (yukarıdaki Fork düğmesine tıklayın)
+Kendi dalınızı oluşturun (git checkout -b ozellik/AmazingFeature)
+Değişikliklerinizi commit edin (git commit -m 'AmazingFeature ekleyin')
+Dalınızı push edin (git push origin ozellik/AmazingFeature)
+Bir Pull Request açın
+Lisans
+Bu proje MIT Lisansı ile lisanslanmıştır. Daha fazla bilgi için LICENSE dosyasına bakın.
+
+İletişim
+Oguzhan DUYAR - @TwitterKullanıcıAdı - your-email@example.com
+
+Proje Linki: https://github.com/OguzhanDUYAR/MyFixAppLinux
