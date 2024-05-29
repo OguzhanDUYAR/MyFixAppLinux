@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=MyFixFedora
-Comment=System Maintenance Script
-Exec=/usr/binMyFixFedora.sh
-Icon=utilities-terminal
-Terminal=true
-Type=Application
-Categories=Utility;
