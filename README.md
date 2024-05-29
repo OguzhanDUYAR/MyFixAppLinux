@@ -9,7 +9,7 @@ This script automates the process of updating, upgrading, and maintaining an Ubu
 You can install `MyFixFedora` by running the following commands in the terminal:
 
 ```bash
-sudo wget https://github.com/OguzhanDUYAR/MyFixAppLinux/raw/main/MyFixFedora.sh -O /usr/bin/MyFixFedora.sh && sudo chmod +x /usr/bin/MyFixFedora.sh && sudo wget https://github.com/OguzhanDUYAR/MyFixAppLinux/raw/main/MyFixFedora.desktop -O /usr/share/applications/MyFixFedora.desktop
+sudo wget https://raw.githubusercontent.com/OguzhanDUYAR/MyFixAppLinux/main/MyFixFedora.sh -O /usr/bin/MyFixFedora.sh && sudo chmod +x /usr/bin/MyFixFedora.sh && sudo wget https://raw.githubusercontent.com/OguzhanDUYAR/MyFixAppLinux/main/MyFixFedora.desktop -O /usr/share/applications/MyFixFedora.desktop
 ```
 
 
