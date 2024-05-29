@@ -6,8 +6,6 @@ This script automates the process of updating, upgrading, and maintaining an Ubu
 
 ## For Fedora
 
-## MyFixApp Kurulumu
-
 You can install `MyFixFedora` by running the following commands in the terminal:
 
 ```bash
