@@ -1,3 +1,4 @@
+![alt text](https://raw.githubusercontent.com/OguzhanDUYAR/MyFixAppLinux/main/MyFixAppLinuxlogo.webp)
 # MyFixApp System Maintenance Script
 
 This script automates the process of updating, upgrading, and maintaining an Ubuntu system by performing tasks such as removing unnecessary packages and cleaning up the system.
