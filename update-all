@@ -1,0 +1,529 @@
+#!/bin/bash
+
+# Renk tanımlamaları
+green="\033[0;32m"
+red="\033[0;31m"
+blue="\033[0;34m"
+yellow="\033[0;33m"
+magenta="\033[0;35m"
+cyan="\033[0;36m"
+normal="\033[0m"
+
+# Başlık fonksiyonu
+print_header() {
+    echo ""
+    echo -e "${blue}=== $1 ===${normal}"
+    echo ""
+}
+
+# Hata kontrolü fonksiyonu
+check_error() {
+    if [ $? -ne 0 ]; then
+        echo -e "${red}✘ $1 başarısız oldu!${normal}"
+        return 1
+    else
+        echo -e "${green}✓ $1 başarılı${normal}"
+        return 0
+    fi
+}
+
+# Bellek kullanımını optimize et
+clean_memory() {
+    print_header "Bellek Optimizasyonu"
+    echo -e "${cyan}Önbellek temizleniyor ve bellek optimize ediliyor...${normal}"
+    
+    # Önbellek temizliği
+    sudo sync
+    check_error "Disk önbellek senkronizasyonu"
+    
+    # Önbellekleri temizle
+    sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'
+    check_error "Page cache ve dentries temizliği"
+    
+    # Swap optimizasyonu
+    if [ -e /proc/sys/vm/swappiness ]; then
+        current_swappiness=$(cat /proc/sys/vm/swappiness)
+        echo -e "${yellow}Mevcut swappiness değeri: $current_swappiness${normal}"
+        
+        # Önerilen swappiness değeri
+        if [ $current_swappiness -gt 60 ]; then
+            echo -e "${cyan}Swappiness değeri düşürülüyor...${normal}"
+            sudo sh -c 'echo 60 > /proc/sys/vm/swappiness'
+            check_error "Swappiness optimizasyonu"
+        fi
+    fi
+}
+
+# APT önbellek temizliği
+clean_apt_cache() {
+    print_header "APT Önbellek Temizliği"
+    
+    # Disk kullanımını raporla
+    echo -e "${cyan}APT önbellek temizliği öncesi disk kullanımı:${normal}"
+    df -h /var/cache/apt/archives/
+    
+    # Gereksiz paketleri temizle
+    echo -e "${cyan}Gereksiz paketler temizleniyor...${normal}"
+    sudo apt autoremove -y
+    check_error "Gereksiz paket temizliği"
+    
+    # APT önbelleğini temizle
+    echo -e "${cyan}APT önbelleği temizleniyor...${normal}"
+    sudo apt clean
+    check_error "APT önbellek temizliği"
+    
+    # İsteğe bağlı olarak tüm önbelleği temizleme seçeneği
+    if [ -n "$1" ] && [ "$1" = "full" ]; then
+        echo -e "${yellow}Tüm APT önbelleği temizleniyor!${normal}"
+        sudo rm -rf /var/cache/apt/archives/*.deb
+        check_error "Tam önbellek temizliği"
+    fi
+    
+    # Temizlik sonrası disk kullanımını raporla
+    echo -e "${cyan}APT önbellek temizliği sonrası disk kullanımı:${normal}"
+    df -h /var/cache/apt/archives/
+}
+
+# Sistem güncellemesi
+update_system() {
+    print_header "Sistem Güncellemesi"
+    
+    # APT kaynak listesi güncelleme
+    echo -e "${cyan}Ubuntu depo listeleri güncelleniyor...${normal}"
+    sudo apt update
+    check_error "APT depo güncelleme"
+    
+    # Paket veritabanını senkronize et ve sistemi güncelle
+    echo -e "${cyan}Sistem güncelleniyor...${normal}"
+    sudo apt upgrade -y
+    check_error "Sistem paketi güncellemesi"
+    
+    # Dağıtım güncelleme
+    echo -e "${cyan}Dağıtım güncellemesi kontrol ediliyor...${normal}"
+    sudo apt dist-upgrade -y
+    check_error "Dağıtım güncellemesi"
+    
+    # Sistemi yeniden başlatma kontrolü
+    if [ -e /var/run/reboot-required ]; then
+        echo -e "${magenta}DİKKAT: Sistem güncellemeleri yeniden başlatma gerektiriyor!${normal}"
+    fi
+}
+
+# Flatpak güncellemesi
+update_flatpak() {
+    if command -v flatpak &> /dev/null; then
+        print_header "Flatpak Güncellemesi"
+        
+        # Kurulu flatpak uygulamalarını listele
+        echo -e "${cyan}Kurulu Flatpak uygulamaları:${normal}"
+        flatpak list --app
+        
+        # Flatpak repo güncelleme
+        echo -e "${cyan}Flatpak depoları güncelleniyor...${normal}"
+        flatpak update --appstream
+        check_error "Flatpak depo güncelleme"
+        
+        # Flatpak uygulama güncelleme
+        echo -e "${cyan}Flatpak uygulamaları güncelleniyor...${normal}"
+        flatpak update -y
+        check_error "Flatpak güncelleme"
+    else
+        echo -e "${yellow}Flatpak bulunamadı, güncelleme atlanıyor.${normal}"
+    fi
+}
+
+# Conda güncellemesi ve ortam yönetimi
+update_conda() {
+    if command -v conda &> /dev/null; then
+        print_header "Conda Güncellemesi ve Ortam Yönetimi"
+        
+        # Aktif ortamı kaydet ve devre dışı bırak
+        previous_conda_env=$CONDA_DEFAULT_ENV
+        conda deactivate 2>/dev/null
+        
+        # Conda kanallarını listele
+        echo -e "${cyan}Conda kanalları:${normal}"
+        conda config --show channels
+        
+        # Conda ana ortamını güncelle
+        echo -e "${cyan}Conda ana yazılımı güncelleniyor...${normal}"
+        conda update -n base -c defaults conda -y
+        check_error "Conda base güncelleme"
+        
+        # Tüm conda ortamlarını listele
+        echo -e "${cyan}Mevcut Conda ortamları:${normal}"
+        conda env list
+        
+        # Tüm ortamları güncelle
+        echo -e "${cyan}Tüm Conda ortamları güncelleniyor...${normal}"
+        for env in $(conda env list | grep -v '^#' | grep -v '^$' | awk '{print $1}'); do
+            if [ "$env" != "*" ]; then
+                echo -e "${yellow}Conda ortamı güncelleniyor: $env${normal}"
+                conda update --all -n $env -y
+                check_error "Conda $env ortamı güncellemesi"
+                
+                # Pip paketlerini de güncelle
+                pip_path=$(conda run -n $env which pip 2>/dev/null)
+                if [ -n "$pip_path" ]; then
+                    echo -e "${yellow}$env ortamında pip paketleri güncelleniyor...${normal}"
+                    conda run -n $env pip list --outdated --format=freeze | grep -v '^\-e' | cut -d = -f 1 | xargs -r -n1 conda run -n $env pip install -U
+                    check_error "$env ortamında pip güncelleme"
+                fi
+            fi
+        done
+        
+        # Conda temizlik
+        echo -e "${cyan}Conda önbelleği temizleniyor...${normal}"
+        conda clean --all -y
+        check_error "Conda önbellek temizleme"
+        
+        # Önceki ortama geri dön
+        if [ -n "$previous_conda_env" ] && [ "$previous_conda_env" != "base" ]; then
+            conda activate $previous_conda_env
+        fi
+    else
+        echo -e "${yellow}Conda bulunamadı, güncelleme atlanıyor.${normal}"
+    fi
+}
+
+# Docker sistem temizliği
+clean_docker() {
+    if command -v docker &> /dev/null; then
+        print_header "Docker Temizliği"
+        
+        # Docker status kontrol et
+        if systemctl is-active --quiet docker; then
+            # Kullanılmayan konteynerları listele
+            echo -e "${cyan}Çalışmayan Docker konteynerları:${normal}"
+            docker ps -a --filter "status=exited" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
+            
+            # Dangling imaj, kullanılmayan konteynır ve ağları temizle
+            echo -e "${cyan}Docker sistemi temizleniyor...${normal}"
+            docker system prune -f
+            check_error "Docker sistem temizliği"
+            
+            # Hacim temizliği
+            if [ $(docker volume ls -qf dangling=true | wc -l) -gt 0 ]; then
+                echo -e "${cyan}Kullanılmayan Docker hacimleri temizleniyor...${normal}"
+                docker volume prune -f
+                check_error "Docker hacim temizliği"
+            fi
+        else
+            echo -e "${yellow}Docker hizmeti çalışmıyor, temizlik atlanıyor.${normal}"
+        fi
+    else
+        echo -e "${yellow}Docker bulunamadı, temizlik atlanıyor.${normal}"
+    fi
+}
+
+# Sistem temizliği
+clean_system() {
+    print_header "Sistem Temizliği"
+    
+    # Kullanılmayan paketleri temizle
+    echo -e "${cyan}Kullanılmayan paketler temizleniyor...${normal}"
+    sudo apt autoremove -y
+    check_error "Kullanılmayan paket temizliği"
+    
+    # Konfigürasyon dosyaları temizliği
+    echo -e "${cyan}Kaldırılmış paketlerin konfigürasyon dosyaları temizleniyor...${normal}"
+    dpkg_configs=$(dpkg -l | awk '/^rc/ {print $2}')
+    if [ -n "$dpkg_configs" ]; then
+        sudo apt purge -y $dpkg_configs
+        check_error "Konfigürasyon dosyaları temizliği"
+    else
+        echo -e "${green}Temizlenecek konfigürasyon dosyası bulunamadı.${normal}"
+    fi
+    
+    # Flatpak çöplerini temizle
+    if command -v flatpak &> /dev/null; then
+        echo -e "${cyan}Flatpak çöpleri temizleniyor...${normal}"
+        flatpak uninstall --unused -y
+        check_error "Flatpak temizliği"
+    fi
+    
+    # Çöp dizinlerini temizle
+    echo -e "${cyan}Geçici dosyalar temizleniyor...${normal}"
+    rm -rf ~/.cache/thumbnails/*
+    rm -rf ~/.local/share/Trash/files/*
+    rm -rf ~/.local/share/Trash/info/*
+    check_error "Geçici dosya temizliği"
+    
+    # Journalctl log temizliği
+    echo -e "${cyan}Sistem logları kompakt hale getiriliyor...${normal}"
+    sudo journalctl --vacuum-time=7d
+    check_error "Sistem log temizliği"
+}
+
+# Sistem sağlığı raporu
+check_system_health() {
+    print_header "Sistem Sağlığı Kontrolü"
+    
+    # Disk kullanımı
+    echo -e "${cyan}Disk Kullanımı:${normal}"
+    df -h | grep -v "tmpfs\|devtmpfs"
+    echo ""
+    
+    # Bellek kullanımı
+    echo -e "${cyan}Bellek Kullanımı:${normal}"
+    free -h
+    echo ""
+    
+    # CPU sıcaklığı
+    if command -v sensors &> /dev/null; then
+        echo -e "${cyan}CPU Sıcaklığı:${normal}"
+        sensors | grep -i "core\|package" | head -n 5
+        echo ""
+    else
+        # CPU sıcaklık için gerekli paket yok, yükleme önerisi
+        echo -e "${yellow}CPU sıcaklığı görüntülemek için lm-sensors yüklenmeli (sudo apt install lm-sensors)${normal}"
+        echo ""
+    fi
+    
+    # Disk sağlığı
+    if command -v smartctl &> /dev/null; then
+        echo -e "${cyan}Disk Sağlığı:${normal}"
+        disks=$(lsblk -dn -o NAME | grep -v "loop\|sr")
+        for disk in $disks; do
+            echo -e "${yellow}Disk $disk:${normal}"
+            sudo smartctl -H /dev/$disk 2>/dev/null
+        done
+        echo ""
+    else
+        # Disk sağlığı kontrolü için gerekli paket yok, yükleme önerisi
+        echo -e "${yellow}Disk sağlığı kontrolü için smartmontools yüklenmeli (sudo apt install smartmontools)${normal}"
+        echo ""
+    fi
+    
+    # Sistem yükü
+    echo -e "${cyan}Sistem Yükü:${normal}"
+    uptime
+    echo ""
+    
+    # En çok kaynak kullanan işlemler
+    echo -e "${cyan}En çok kaynak kullanan 5 işlem:${normal}"
+    ps -eo pid,ppid,cmd,%mem,%cpu --sort=-%cpu | head -n 6
+    
+    # Sistemde çalışan servisler
+    echo -e "${cyan}Başarısız servisler:${normal}"
+    systemctl --failed
+}
+
+# Sistem yedekleme
+backup_system() {
+    print_header "Sistem Yedekleme"
+    
+    # Yedek dizinleri oluştur
+    backup_dir=~/.system_backups
+    date_str=$(date +%Y%m%d-%H%M)
+    
+    if [ ! -d "$backup_dir" ]; then
+        mkdir -p $backup_dir
+    fi
+    
+    # Paket listelerini yedekle
+    echo -e "${cyan}Kurulu paket listeleri yedekleniyor...${normal}"
+    dpkg --get-selections > $backup_dir/ubuntu-packages-$date_str.txt
+    check_error "Ubuntu paket listesi yedekleme"
+    
+    if command -v flatpak &> /dev/null; then
+        flatpak list > $backup_dir/flatpak-packages-$date_str.txt
+        check_error "Flatpak paket listesi yedekleme"
+    fi
+    
+    # Depo listesini yedekle
+    echo -e "${cyan}APT depo listeleri yedekleniyor...${normal}"
+    sudo cp /etc/apt/sources.list $backup_dir/sources.list-$date_str
+    if [ -d /etc/apt/sources.list.d ]; then
+        sudo tar -czf $backup_dir/sources.list.d-$date_str.tar.gz /etc/apt/sources.list.d/
+    fi
+    check_error "APT depo listeleri yedekleme"
+    
+    # Önemli konfigürasyon dosyalarını yedekle
+    echo -e "${cyan}Sistem konfigürasyon dosyaları yedekleniyor...${normal}"
+    
+    config_backup=$backup_dir/configs-$date_str.tar.gz
+    
+    tar -czf $config_backup \
+        /etc/fstab \
+        /etc/hosts \
+        /etc/hostname \
+        /etc/locale.conf \
+        ~/.bashrc \
+        ~/.zshrc \
+        ~/.config/fish/config.fish \
+        2>/dev/null
+    
+    check_error "Konfigürasyon dosyaları yedekleme"
+    
+    # Timeshift yedek oluştur (varsa)
+    if command -v timeshift &> /dev/null; then
+        echo -e "${cyan}Timeshift yedek oluşturuluyor...${normal}"
+        sudo timeshift --create --comments "Otomatik yedek $date_str" --tags D
+        check_error "Timeshift yedekleme"
+    else
+        echo -e "${yellow}Timeshift bulunamadı, yükleme isterseniz: sudo apt install timeshift${normal}"
+    fi
+    
+    echo -e "${yellow}Yedekler $backup_dir dizinine kaydedildi.${normal}"
+}
+
+# Güvenlik taraması
+security_check() {
+    print_header "Güvenlik Taraması"
+    
+    # RKHunter ile güvenlik taraması
+    if command -v rkhunter &> /dev/null; then
+        echo -e "${cyan}RKHunter güvenlik taraması başlatılıyor...${normal}"
+        sudo rkhunter --update
+        check_error "RKHunter güncelleme"
+        
+        sudo rkhunter --check --sk
+        check_error "RKHunter tarama"
+    else
+        echo -e "${yellow}RKHunter bulunamadı, yüklemek için: sudo apt install rkhunter${normal}"
+    fi
+    
+    # ClamAV ile virüs taraması
+    if command -v clamscan &> /dev/null; then
+        echo -e "${cyan}ClamAV virüs taraması başlatılıyor (ana dizinde)...${normal}"
+        sudo freshclam
+        check_error "ClamAV virüs tanımları güncelleme"
+        
+        clamscan --recursive=yes --infected $HOME
+        check_error "ClamAV virüs taraması"
+    else
+        echo -e "${yellow}ClamAV bulunamadı, yüklemek için: sudo apt install clamav clamav-daemon${normal}"
+    fi
+    
+    # Sistem dosya bütünlük kontrolü
+    if command -v debsums &> /dev/null; then
+        echo -e "${cyan}Değiştirilmiş paket dosyaları kontrol ediliyor...${normal}"
+        sudo debsums -c
+        check_error "Paket bütünlük kontrolü"
+    else
+        echo -e "${yellow}debsums bulunamadı, yüklemek için: sudo apt install debsums${normal}"
+    fi
+    
+    # Açık portlar
+    if command -v ss &> /dev/null; then
+        echo -e "${cyan}Açık dinleme portları:${normal}"
+        ss -tuln
+    fi
+}
+
+# Ana güncelleme fonksiyonu
+main() {
+    start_time=$(date +%s)
+    
+    echo -e "${yellow}Güncelleme işlemi başlatılıyor...${normal}"
+    date "+%Y-%m-%d %H:%M:%S"
+    
+    # Yedek dizini oluştur
+    reports_dir=~/.system_reports
+    if [ ! -d "$reports_dir" ]; then
+        mkdir -p $reports_dir
+    fi
+    log_file=$reports_dir/update-report-$(date +%Y%m%d-%H%M).log
+    
+    # Başlık ekle
+    echo "==========================================" >> $log_file
+    echo "Sistem Güncelleme Raporu - "$(date "+%Y-%m-%d %H:%M:%S") >> $log_file
+    echo "==========================================" >> $log_file
+    
+    # Argümanları kontrol et
+    run_backup=false
+    run_security=false
+    
+    if [ $# -gt 0 ]; then
+        for arg in "$@"; do
+            case $arg in
+                --help|-h)
+                    echo "Kullanım: update-all [seçenekler]"
+                    echo "Seçenekler:"
+                    echo "  --full      : Tam sistem bakımı (yedekleme ve güvenlik kontrolü dahil)"
+                    echo "  --backup    : Sistem yedeklemesi dahil et"
+                    echo "  --security  : Güvenlik taraması dahil et"
+                    echo "  --health    : Sadece sistem sağlık raporunu görüntüle"
+                    return 0
+                    ;;
+                --backup)
+                    run_backup=true
+                    ;;
+                --security)
+                    run_security=true
+                    ;;
+                --health)
+                    check_system_health
+                    return 0
+                    ;;
+                --full)
+                    run_backup=true
+                    run_security=true
+                    ;;
+            esac
+        done
+    fi
+    
+    # Ana sistem bakımı
+    clean_apt_cache
+    update_system
+    
+    # İsteğe bağlı olarak Flatpak ve Conda güncellemeleri
+    if command -v flatpak &> /dev/null; then
+        update_flatpak
+    fi
+    
+    if command -v conda &> /dev/null; then
+        update_conda
+    fi
+    
+    clean_docker
+    clean_system
+    clean_memory
+    
+    # İsteğe bağlı işlemler
+    if [ "$run_backup" = "true" ]; then
+        backup_system
+    fi
+    
+    if [ "$run_security" = "true" ]; then
+        security_check
+    fi
+    
+    # Sistem sağlığı kontrolü
+    check_system_health
+    
+    end_time=$(date +%s)
+    duration=$((end_time - start_time))
+    
+    # Zamanı dakika ve saniye olarak formatla
+    minutes=$((duration / 60))
+    seconds=$((duration % 60))
+    time_str="$minutes dakika $seconds saniye"
+    
+    echo -e "${green}=====================================${normal}"
+    echo -e "${green}Tüm güncellemeler tamamlandı!${normal}"
+    echo -e "${yellow}Toplam süre: $time_str${normal}"
+    echo -e "${green}=====================================${normal}"
+    
+    # Raporu kaydet
+    echo "Toplam işlem süresi: $time_str" >> $log_file
+    echo "==========================================" >> $log_file
+    
+    # Başarısız güncelleme kontrolü
+    if [ $? -ne 0 ]; then
+        if command -v notify-send &> /dev/null; then
+            notify-send -u critical "Güncelleme Uyarısı" "Bazı güncellemeler başarısız oldu. Lütfen kontrol edin."
+        fi
+        return 1
+    else
+        if command -v notify-send &> /dev/null; then
+            notify-send "Güncelleme Başarılı" "Tüm güncellemeler başarıyla tamamlandı. Süre: $time_str"
+        fi
+        return 0
+    fi
+}
+
+# Argümanlarla ana fonksiyonu çalıştır
+main "$@"
